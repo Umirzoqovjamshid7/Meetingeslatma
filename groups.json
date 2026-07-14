@@ -1,0 +1,34 @@
+{
+  "Clinics Club": {
+    "chat_id": -1003779061396,
+    "topic_id": 1
+  },
+  "Marketing va IT bo'limi": {
+    "chat_id": -1003232305133,
+    "topic_id": 178
+  },
+  "Meta Holding Dashboard": {
+    "chat_id": -1003232305133,
+    "topic_id": 178
+  },
+  "Umra": {
+    "chat_id": -1002054544589,
+    "topic_id": 238
+  },
+  "Iman": {
+    "chat_id": -1003232305133,
+    "topic_id": 178
+  },
+  "Okeybo": {
+    "chat_id": -1003737311084,
+    "topic_id": 1
+  },
+  "Praktikum": {
+    "chat_id": -1003779061396,
+    "topic_id": 1
+  },
+  "Meros": {
+    "chat_id": null,
+    "topic_id": null
+  }
+}

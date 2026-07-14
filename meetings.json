@@ -1,0 +1,115 @@
+{
+  "next_id": 12,
+  "meetings": [
+    {
+      "day": "dushanba",
+      "time": "09:00",
+      "project": "Clinics Club",
+      "type": "Meeting",
+      "participants": "Sotuv jamoasi",
+      "responsible": "R.To'kliyev",
+      "assistant": "COO J.Ziyodullayev",
+      "id": 1
+    },
+    {
+      "day": "dushanba",
+      "time": "11:00",
+      "project": "Marketing va IT bo'limi",
+      "type": "Meeting",
+      "participants": "IT bo'limi va marketingdagilar",
+      "responsible": "J.Sharopov (Asoschisi)",
+      "assistant": "COO J.Ziyodullayev",
+      "id": 2
+    },
+    {
+      "day": "dushanba",
+      "time": "12:00",
+      "project": "Meta Holding Dashboard",
+      "type": "Meeting",
+      "participants": "Analitik bo'lim, AI Integratsiya xodimi",
+      "responsible": "COO J.Ziyodullayev",
+      "assistant": "—",
+      "id": 3
+    },
+    {
+      "day": "dushanba",
+      "time": "15:00",
+      "project": "Umra",
+      "type": "Meeting",
+      "participants": "Umra jamoasi",
+      "responsible": "R.To'kliyev",
+      "assistant": "COO J.Ziyodullayev",
+      "id": 4
+    },
+    {
+      "day": "seshanba",
+      "time": "18:27",
+      "project": "Iman",
+      "type": "Meeting",
+      "participants": "Iman Authors komanda",
+      "responsible": "COO J.Ziyodullayev",
+      "assistant": "Safiya G'ayratzoda",
+      "id": 5
+    },
+    {
+      "day": "chorshanba",
+      "time": "17:00",
+      "project": "Okeybo",
+      "type": "Meeting",
+      "participants": "Barcha bo'limlar",
+      "responsible": "J.Sharopov (Asoschisi)",
+      "assistant": "COO J.Ziyodullayev",
+      "id": 6
+    },
+    {
+      "day": "payshanba",
+      "time": "15:00",
+      "project": "Umra",
+      "type": "Sales Tahlil",
+      "participants": "Umra jamoasi",
+      "responsible": "R.To'kliyev",
+      "assistant": "COO J.Ziyodullayev",
+      "id": 7
+    },
+    {
+      "day": "juma",
+      "time": "15:00",
+      "project": "Marketing va IT bo'limi",
+      "type": "Tahlil",
+      "participants": "IT bo'limi va marketingdagilar",
+      "responsible": "J.Sharopov (Asoschisi)",
+      "assistant": "COO J.Ziyodullayev",
+      "id": 8
+    },
+    {
+      "day": "juma",
+      "time": "16:00",
+      "project": "Iman",
+      "type": "Obuchenya",
+      "participants": "Iman loyihasi ma'sullari",
+      "responsible": "COO J.Ziyodullayev",
+      "assistant": "D.Qodirova",
+      "id": 9
+    },
+    {
+      "day": "shanba",
+      "time": "15:00",
+      "project": "Praktikum",
+      "type": "Tahlil",
+      "participants": "Call operatorlar va rahbarlar",
+      "responsible": "R.To'kliyev",
+      "assistant": "Xayrulla Nabiyev",
+      "id": 10
+    },
+    {
+      "day": "shanba",
+      "time": "18:00",
+      "project": "Meros",
+      "type": "Tahlil",
+      "participants": "Sotuv jamoasi",
+      "responsible": "J.Sharopov (Asoschisi)",
+      "assistant": "COO J.Ziyodullayev",
+      "id": 11
+    }
+  ]
+}
