@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sys
+from datetime import datetime, timedelta
 from datetime import time as dtime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -38,6 +39,7 @@ ADMIN_IDS = {
 
 TIMEZONE = ZoneInfo("Asia/Tashkent")
 REMINDER_TIME = dtime(10, 0, tzinfo=TIMEZONE)
+PRE_MEETING_MINUTES = 30
 
 BASE_DIR = Path(__file__).resolve().parent
 MEETINGS_FILE = BASE_DIR / "meetings.json"
@@ -121,9 +123,10 @@ def known_projects():
 #  3) ESLATMA YUBORISH VA REJALASHTIRISH
 # ============================================================
 
-def build_message(m):
+def build_message(m, when="morning"):
+    header = "⏰ Majlis 30 daqiqadan keyin boshlanadi!" if when == "pre" else "📢 Bugun majlis bor!"
     return (
-        "📢 Bugun majlis bor!\n\n"
+        f"{header}\n\n"
         f"🗓 Loyiha/bo'lim: {m['project']}\n"
         f"📌 Turi: {m['type']}\n"
         f"🕒 Vaqt: {m['time']}\n"
@@ -133,12 +136,12 @@ def build_message(m):
     )
 
 
-async def send_meeting_reminder(bot, m):
+async def send_meeting_reminder(bot, m, when="morning"):
     """Majlis eslatmasini guruhga yuboradi. (muvaffaqiyat, xabar) qaytaradi."""
     group = load_groups().get(m["project"])
     if not group or group.get("chat_id") is None:
         return False, f"'{m['project']}' uchun guruh sozlanmagan."
-    kwargs = {"chat_id": group["chat_id"], "text": build_message(m)}
+    kwargs = {"chat_id": group["chat_id"], "text": build_message(m, when)}
     if group.get("topic_id"):
         kwargs["message_thread_id"] = group["topic_id"]
     try:
@@ -149,13 +152,14 @@ async def send_meeting_reminder(bot, m):
 
 
 async def send_reminder_job(context: ContextTypes.DEFAULT_TYPE):
-    m = context.job.data
-    ok, msg = await send_meeting_reminder(context.bot, m)
+    m = context.job.data["meeting"]
+    when = context.job.data["when"]
+    ok, msg = await send_meeting_reminder(context.bot, m, when)
     if ok:
-        logger.info("Eslatma yuborildi: %s (%s)", m["project"], m["time"])
+        logger.info("Eslatma yuborildi: %s (%s, %s)", m["project"], m["time"], when)
         return
 
-    logger.warning("Eslatma yuborilmadi (%s): %s", m["project"], msg)
+    logger.warning("Eslatma yuborilmadi (%s, %s): %s", m["project"], when, msg)
     for admin_id in ADMIN_IDS:
         try:
             await context.bot.send_message(
@@ -171,6 +175,11 @@ async def send_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             pass
 
 
+def compute_pre_meeting_time(meeting_time_str):
+    t = datetime.strptime(meeting_time_str, "%H:%M") - timedelta(minutes=PRE_MEETING_MINUTES)
+    return dtime(t.hour, t.minute, tzinfo=TIMEZONE)
+
+
 def reschedule_all(app: Application):
     for job in app.job_queue.jobs():
         if job.name and job.name.startswith("reminder-"):
@@ -184,9 +193,14 @@ def reschedule_all(app: Application):
             continue
         weekday_idx = PTB_WEEKDAY[m["day"]]
         app.job_queue.run_daily(
-            send_reminder_job, time=REMINDER_TIME, days=(weekday_idx,), data=m, name=f"reminder-{m['id']}"
+            send_reminder_job, time=REMINDER_TIME, days=(weekday_idx,),
+            data={"meeting": m, "when": "morning"}, name=f"reminder-morning-{m['id']}",
         )
-        count += 1
+        app.job_queue.run_daily(
+            send_reminder_job, time=compute_pre_meeting_time(m["time"]), days=(weekday_idx,),
+            data={"meeting": m, "when": "pre"}, name=f"reminder-pre-{m['id']}",
+        )
+        count += 2
     logger.info("Jadval yangilandi: %d ta eslatma rejalashtirildi.", count)
 
 
