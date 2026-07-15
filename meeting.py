@@ -206,6 +206,8 @@ async def deny(update: Update):
     if update.callback_query:
         await update.callback_query.answer("Sizda ruxsat yo'q.", show_alert=True)
     elif update.message:
+        if update.effective_chat.type != "private":
+            return
         await update.message.reply_text(
             "Sizda ruxsat yo'q. Administratorga /myid buyrug'i natijasini yuboring."
         )
