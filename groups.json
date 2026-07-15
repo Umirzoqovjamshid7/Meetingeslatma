@@ -1,7 +1,7 @@
 {
   "Clinics Club": {
     "chat_id": -1003779061396,
-    "topic_id": 1
+    "topic_id": 6
   },
   "Marketing va IT bo'limi": {
     "chat_id": -1003232305133,
@@ -13,7 +13,7 @@
   },
   "Umra": {
     "chat_id": -1002054544589,
-    "topic_id": 238
+    "topic_id": 51238
   },
   "Iman": {
     "chat_id": -1003232305133,
@@ -21,14 +21,14 @@
   },
   "Okeybo": {
     "chat_id": -1003737311084,
-    "topic_id": 1
+    "topic_id": 2
   },
   "Praktikum": {
     "chat_id": -1003779061396,
-    "topic_id": 1
+    "topic_id": 6
   },
   "Meros": {
-    "chat_id": null,
-    "topic_id": null
+    "chat_id": -1003894114686,
+    "topic_id": 848
   }
 }

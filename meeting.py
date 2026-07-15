@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from datetime import time as dtime
 from pathlib import Path
 from zoneinfo import ZoneInfo
-
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -77,68 +76,13 @@ logger = logging.getLogger("meeting_bot")
 #  2) SAQLASH (meetings.json / groups.json)
 # ============================================================
 
-DEFAULT_MEETINGS = [
-    {"day": "dushanba", "time": "09:00", "project": "Clinics Club",
-     "type": "Meeting", "participants": "Sotuv jamoasi",
-     "responsible": "R.To'kliyev", "assistant": "COO J.Ziyodullayev"},
-    {"day": "dushanba", "time": "11:00", "project": "Marketing va IT bo'limi",
-     "type": "Meeting", "participants": "IT bo'limi va marketingdagilar",
-     "responsible": "J.Sharopov (Asoschisi)", "assistant": "COO J.Ziyodullayev"},
-    {"day": "dushanba", "time": "12:00", "project": "Meta Holding Dashboard",
-     "type": "Meeting", "participants": "Analitik bo'lim, AI Integratsiya xodimi",
-     "responsible": "COO J.Ziyodullayev", "assistant": "—"},
-    {"day": "dushanba", "time": "15:00", "project": "Umra",
-     "type": "Meeting", "participants": "Umra jamoasi",
-     "responsible": "R.To'kliyev", "assistant": "COO J.Ziyodullayev"},
-    {"day": "seshanba", "time": "18:27", "project": "Iman",
-     "type": "Meeting", "participants": "Iman Authors komanda",
-     "responsible": "COO J.Ziyodullayev", "assistant": "Safiya G'ayratzoda"},
-    {"day": "chorshanba", "time": "17:00", "project": "Okeybo",
-     "type": "Meeting", "participants": "Barcha bo'limlar",
-     "responsible": "J.Sharopov (Asoschisi)", "assistant": "COO J.Ziyodullayev"},
-    {"day": "payshanba", "time": "15:00", "project": "Umra",
-     "type": "Sales Tahlil", "participants": "Umra jamoasi",
-     "responsible": "R.To'kliyev", "assistant": "COO J.Ziyodullayev"},
-    {"day": "juma", "time": "15:00", "project": "Marketing va IT bo'limi",
-     "type": "Tahlil", "participants": "IT bo'limi va marketingdagilar",
-     "responsible": "J.Sharopov (Asoschisi)", "assistant": "COO J.Ziyodullayev"},
-    {"day": "juma", "time": "16:00", "project": "Iman",
-     "type": "Obuchenya", "participants": "Iman loyihasi ma'sullari",
-     "responsible": "COO J.Ziyodullayev", "assistant": "D.Qodirova"},
-    {"day": "shanba", "time": "15:00", "project": "Praktikum",
-     "type": "Tahlil", "participants": "Call operatorlar va rahbarlar",
-     "responsible": "R.To'kliyev", "assistant": "Xayrulla Nabiyev"},
-    {"day": "shanba", "time": "18:00", "project": "Meros",
-     "type": "Tahlil", "participants": "Sotuv jamoasi",
-     "responsible": "J.Sharopov (Asoschisi)", "assistant": "COO J.Ziyodullayev"},
-]
-
-# Ba'zi loyihalar uchun chat_id/topic_id allaqachon ma'lum edi, shu sababli
-# boshqalardan farqli holda tayyor qiymat bilan urug'lanadi.
-DEFAULT_GROUPS = {
-    "Clinics Club":            {"chat_id": -1003779061396, "topic_id": 1},
-    "Marketing va IT bo'limi": {"chat_id": -1003232305133, "topic_id": 178},
-    "Meta Holding Dashboard":  {"chat_id": -1003232305133, "topic_id": 178},
-    "Umra":                    {"chat_id": -1002054544589, "topic_id": 238},
-    "Iman":                    {"chat_id": -1003232305133, "topic_id": 178},
-    "Okeybo":                  {"chat_id": -1003737311084, "topic_id": 1},
-    "Praktikum":               {"chat_id": -1003779061396, "topic_id": 1},
-    "Meros":                   {"chat_id": -1003894114686, "topic_id": 848},
-}
-
-
 def _seed_if_missing():
     if not MEETINGS_FILE.exists():
         data = {"next_id": 1, "meetings": []}
-        for m in DEFAULT_MEETINGS:
-            m = dict(m)
-            m["id"] = data["next_id"]
-            data["next_id"] += 1
-            data["meetings"].append(m)
         MEETINGS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
     if not GROUPS_FILE.exists():
-        GROUPS_FILE.write_text(json.dumps(DEFAULT_GROUPS, ensure_ascii=False, indent=2), encoding="utf-8")
+        GROUPS_FILE.write_text(json.dumps({}, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_meetings():
@@ -190,21 +134,42 @@ def build_message(m):
     )
 
 
-async def send_reminder_job(context: ContextTypes.DEFAULT_TYPE):
-    m = context.job.data
+async def send_meeting_reminder(bot, m):
+    """Majlis eslatmasini guruhga yuboradi. (muvaffaqiyat, xabar) qaytaradi."""
     group = load_groups().get(m["project"])
     if not group or group.get("chat_id") is None:
-        logger.warning("'%s' uchun guruh sozlanmagan, eslatma yuborilmadi (id=%s).",
-                        m["project"], m["id"])
-        return
+        return False, f"'{m['project']}' uchun guruh sozlanmagan."
     kwargs = {"chat_id": group["chat_id"], "text": build_message(m)}
     if group.get("topic_id"):
         kwargs["message_thread_id"] = group["topic_id"]
     try:
-        await context.bot.send_message(**kwargs)
-        logger.info("Eslatma yuborildi: %s (%s)", m["project"], m["time"])
+        await bot.send_message(**kwargs)
+        return True, "Yuborildi."
     except Exception as e:
-        logger.error("Eslatma yuborishda xato (%s): %s", m["project"], e)
+        return False, str(e)
+
+
+async def send_reminder_job(context: ContextTypes.DEFAULT_TYPE):
+    m = context.job.data
+    ok, msg = await send_meeting_reminder(context.bot, m)
+    if ok:
+        logger.info("Eslatma yuborildi: %s (%s)", m["project"], m["time"])
+        return
+
+    logger.warning("Eslatma yuborilmadi (%s): %s", m["project"], msg)
+    for admin_id in ADMIN_IDS:
+        try:
+            await context.bot.send_message(
+                chat_id=admin_id,
+                text=(
+                    f"⚠️ '{m['project']}' uchun eslatma guruhga YUBORILMADI!\n"
+                    f"Sabab: {msg}\n\n"
+                    "Guruh sozlamalarini tekshiring: /start → ⚙️ Guruh sozlamalari, "
+                    "yoki o'sha guruhda /register buyrug'ini qayta yozing."
+                ),
+            )
+        except Exception:
+            pass
 
 
 def compute_reminder_time(meeting_time_str):
@@ -305,6 +270,7 @@ def field_menu_kb(meeting_id):
         [InlineKeyboardButton(FIELD_LABELS["responsible"], callback_data=f"fld:{meeting_id}:responsible"),
          InlineKeyboardButton(FIELD_LABELS["assistant"], callback_data=f"fld:{meeting_id}:assistant")],
         [InlineKeyboardButton("🗑 O'chirish", callback_data=f"fld:{meeting_id}:delete")],
+        [InlineKeyboardButton("📨 Sinov xabari yuborish", callback_data=f"test:{meeting_id}")],
         [InlineKeyboardButton("⬅️ Loyihalar", callback_data="list")],
     ]
     return kb(rows)
@@ -372,12 +338,21 @@ async def render(update: Update, text, markup=None):
 
 async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    await update.message.reply_text(
+    thread_id = update.message.message_thread_id
+    text = (
         f"Sizning Telegram ID: {update.effective_user.id}\n"
         f"Joriy chat ID: {chat.id}\n"
-        f"Chat turi: {chat.type}\n\n"
-        "Agar bu guruh bo'lsa, yuqoridagi 'Joriy chat ID' — aynan guruhning ID si."
+        f"Chat turi: {chat.type}\n"
     )
+    if thread_id:
+        text += f"Joriy mavzu (topic) ID: {thread_id}\n"
+    text += (
+        "\nAgar bu guruh bo'lsa, 'Joriy chat ID' — guruhning ID si. "
+        "Agar bu xabar biror mavzu (topic) ichida yozilgan bo'lsa, "
+        "yuqoridagi 'Joriy mavzu ID' — aynan o'sha mavzuning ID si "
+        "(guruh sozlamalarida Topic ID sifatida shuni kiriting)."
+    )
+    await update.message.reply_text(text)
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -395,6 +370,25 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text("Bekor qilindi.")
     await update.message.reply_text("Bosh menyu:", reply_markup=main_menu_kb())
+
+
+async def cmd_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        await deny(update)
+        return
+    chat = update.effective_chat
+    if chat.type not in ("group", "supergroup"):
+        await update.message.reply_text(
+            "Bu buyruqni shaxsiy chatda emas, balki loyihaga tegishli haqiqiy "
+            "guruhda (agar mavzular yoqilgan bo'lsa — aynan kerakli mavzu ichida) yozing."
+        )
+        return
+    context.chat_data["register_thread_id"] = update.message.message_thread_id
+    rows = [[InlineKeyboardButton(p, callback_data=f"reg:{p}")] for p in known_projects()]
+    await update.message.reply_text(
+        "Shu chat (va mavzu, agar bo'lsa) qaysi loyihaga bog'lansin?",
+        reply_markup=kb(rows),
+    )
 
 
 # ============================================================
@@ -459,6 +453,32 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif field in FIELD_LABELS:
             ud["awaiting"] = ("edit", meeting_id, field)
             await render(update, f"{FIELD_LABELS[field]} uchun yangi qiymatni yozing:")
+        return
+
+    if data.startswith("test:"):
+        meeting_id = int(data.split(":", 1)[1])
+        mdata = load_meetings()
+        m = get_meeting(mdata, meeting_id)
+        if not m:
+            await render(update, "Bu majlis topilmadi.", main_menu_kb())
+            return
+        ok, msg = await send_meeting_reminder(context.bot, m)
+        status = "✅ Sinov xabari guruhga yuborildi!" if ok else f"❌ Yuborilmadi: {msg}"
+        await render(update, f"{status}\n\n{meeting_summary(m)}", field_menu_kb(meeting_id))
+        return
+
+    if data.startswith("reg:"):
+        name = data.split(":", 1)[1]
+        chat = update.effective_chat
+        thread_id = context.chat_data.pop("register_thread_id", None)
+        groups = load_groups()
+        groups[name] = {"chat_id": chat.id, "topic_id": thread_id}
+        save_groups(groups)
+        await query.edit_message_text(
+            f"✅ '{name}' shu chatga bog'landi.\n"
+            f"Chat ID: {chat.id}\n"
+            f"Topic ID: {thread_id if thread_id else 'umumiy mavzu'}"
+        )
         return
 
     if data.startswith("day:"):
@@ -747,6 +767,7 @@ def main():
     app.add_handler(CommandHandler("myid", cmd_myid))
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("bekor", cmd_cancel))
+    app.add_handler(CommandHandler("register", cmd_register))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
