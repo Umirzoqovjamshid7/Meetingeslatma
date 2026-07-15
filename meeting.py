@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import sys
-from datetime import datetime, timedelta
 from datetime import time as dtime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -37,8 +36,8 @@ ADMIN_IDS = {
     int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()
 }
 
-REMINDER_MINUTES = 30
 TIMEZONE = ZoneInfo("Asia/Tashkent")
+REMINDER_TIME = dtime(10, 0, tzinfo=TIMEZONE)
 
 BASE_DIR = Path(__file__).resolve().parent
 MEETINGS_FILE = BASE_DIR / "meetings.json"
@@ -172,11 +171,6 @@ async def send_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             pass
 
 
-def compute_reminder_time(meeting_time_str):
-    t = datetime.strptime(meeting_time_str, "%H:%M") - timedelta(minutes=REMINDER_MINUTES)
-    return dtime(t.hour, t.minute, tzinfo=TIMEZONE)
-
-
 def reschedule_all(app: Application):
     for job in app.job_queue.jobs():
         if job.name and job.name.startswith("reminder-"):
@@ -188,10 +182,9 @@ def reschedule_all(app: Application):
         if not TIME_RE.match(m["time"]) or m["day"] not in DAYS:
             logger.warning("Noto'g'ri jadval yozuvi o'tkazib yuborildi: %s", m)
             continue
-        rt = compute_reminder_time(m["time"])
         weekday_idx = PTB_WEEKDAY[m["day"]]
         app.job_queue.run_daily(
-            send_reminder_job, time=rt, days=(weekday_idx,), data=m, name=f"reminder-{m['id']}"
+            send_reminder_job, time=REMINDER_TIME, days=(weekday_idx,), data=m, name=f"reminder-{m['id']}"
         )
         count += 1
     logger.info("Jadval yangilandi: %d ta eslatma rejalashtirildi.", count)
@@ -596,6 +589,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============================================================
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        return
     if not is_admin(update.effective_user.id):
         await deny(update)
         return
