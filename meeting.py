@@ -51,11 +51,11 @@ DAY_LABELS = {
     "payshanba": "Payshanba", "juma": "Juma", "shanba": "Shanba", "yakshanba": "Yakshanba",
 }
 
-# PTB JobQueue.run_daily() dagi "days" 0 = dushanba (Monday), 6 = yakshanba (Sunday).
-# Python datetime.weekday() ham xuddi shunday: 0 = dushanba.
+# PTB JobQueue.run_daily() dagi "days" cron konvensiyasida: 0 = yakshanba (Sunday),
+# 1 = dushanba (Monday), ..., 6 = shanba (Saturday). (Python datetime.weekday() dan farqli!)
 PTB_WEEKDAY = {
-    "dushanba": 0, "seshanba": 1, "chorshanba": 2,
-    "payshanba": 3, "juma": 4, "shanba": 5, "yakshanba": 6,
+    "yakshanba": 0, "dushanba": 1, "seshanba": 2, "chorshanba": 3,
+    "payshanba": 4, "juma": 5, "shanba": 6,
 }
 
 FIELD_LABELS = {
@@ -124,10 +124,11 @@ def known_projects():
 # ============================================================
 
 def build_message(m, when="morning"):
-    header = "⏰ Majlis 30 daqiqadan keyin boshlanadi!" if when == "pre" else "📢 Bugun majlis bor!"
+    header = f"⏰ Majlis {PRE_MEETING_MINUTES} daqiqadan keyin boshlanadi!" if when == "pre" else "📢 Bugun majlis bor!"
     return (
         f"{header}\n\n"
         f"🗓 Loyiha/bo'lim: {m['project']}\n"
+        f"📅 Kun: {DAY_LABELS[m['day']]}\n"
         f"📌 Turi: {m['type']}\n"
         f"🕒 Vaqt: {m['time']}\n"
         f"👥 Ishtirokchilar: {m['participants']}\n"
@@ -176,8 +177,13 @@ async def send_reminder_job(context: ContextTypes.DEFAULT_TYPE):
 
 
 def compute_pre_meeting_time(meeting_time_str):
-    t = datetime.strptime(meeting_time_str, "%H:%M") - timedelta(minutes=PRE_MEETING_MINUTES)
-    return dtime(t.hour, t.minute, tzinfo=TIMEZONE)
+    """Majlisdan oldingi eslatma vaqtini hisoblaydi. Agar shu vaqt kechagi kunga
+    o'tib ketsa (masalan majlis 00:15 da bo'lsa), kun siljishini ham qaytaradi,
+    shunda reschedule_all() eslatmani to'g'ri hafta kuniga rejalashtira oladi."""
+    meeting_dt = datetime.strptime(meeting_time_str, "%H:%M")
+    pre_dt = meeting_dt - timedelta(minutes=PRE_MEETING_MINUTES)
+    day_shift = (meeting_dt.date() - pre_dt.date()).days
+    return dtime(pre_dt.hour, pre_dt.minute, tzinfo=TIMEZONE), day_shift
 
 
 def reschedule_all(app: Application):
@@ -196,8 +202,10 @@ def reschedule_all(app: Application):
             send_reminder_job, time=REMINDER_TIME, days=(weekday_idx,),
             data={"meeting": m, "when": "morning"}, name=f"reminder-morning-{m['id']}",
         )
+        pre_time, day_shift = compute_pre_meeting_time(m["time"])
+        pre_weekday_idx = (weekday_idx - day_shift) % 7
         app.job_queue.run_daily(
-            send_reminder_job, time=compute_pre_meeting_time(m["time"]), days=(weekday_idx,),
+            send_reminder_job, time=pre_time, days=(pre_weekday_idx,),
             data={"meeting": m, "when": "pre"}, name=f"reminder-pre-{m['id']}",
         )
         count += 2
