@@ -176,14 +176,28 @@ async def send_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             pass
 
 
-def compute_pre_meeting_time(meeting_time_str):
-    """Majlisdan oldingi eslatma vaqtini hisoblaydi. Agar shu vaqt kechagi kunga
-    o'tib ketsa (masalan majlis 00:15 da bo'lsa), kun siljishini ham qaytaradi,
-    shunda reschedule_all() eslatmani to'g'ri hafta kuniga rejalashtira oladi."""
+def compute_offset_time(meeting_time_str, minutes_before):
+    """Majlisdan `minutes_before` daqiqa oldingi vaqtni hisoblaydi. Agar shu vaqt
+    kechagi kunga o'tib ketsa (masalan majlis 00:15 da bo'lsa), kun siljishini ham
+    qaytaradi, shunda reschedule_all() eslatmani to'g'ri hafta kuniga rejalashtira oladi."""
     meeting_dt = datetime.strptime(meeting_time_str, "%H:%M")
-    pre_dt = meeting_dt - timedelta(minutes=PRE_MEETING_MINUTES)
-    day_shift = (meeting_dt.date() - pre_dt.date()).days
-    return dtime(pre_dt.hour, pre_dt.minute, tzinfo=TIMEZONE), day_shift
+    offset_dt = meeting_dt - timedelta(minutes=minutes_before)
+    day_shift = (meeting_dt.date() - offset_dt.date()).days
+    return dtime(offset_dt.hour, offset_dt.minute, tzinfo=TIMEZONE), day_shift
+
+
+def compute_pre_meeting_time(meeting_time_str):
+    return compute_offset_time(meeting_time_str, PRE_MEETING_MINUTES)
+
+
+def compute_morning_time(meeting_time_str):
+    """Ertalabki 'Bugun majlis bor!' eslatmasi vaqtini hisoblaydi. Odatda REMINDER_TIME
+    (10:00) da yuboriladi, lekin majlis shu vaqtda yoki undan oldin bo'lsa, majlisdan 1 soat
+    oldin yuboriladi — aks holda eslatma majlis boshlanib bo'lgandan keyin (yoki aynan bir
+    vaqtda) kelib qolar edi."""
+    if meeting_time_str <= REMINDER_TIME.strftime("%H:%M"):
+        return compute_offset_time(meeting_time_str, 60)
+    return REMINDER_TIME, 0
 
 
 def reschedule_all(app: Application):
@@ -198,8 +212,10 @@ def reschedule_all(app: Application):
             logger.warning("Noto'g'ri jadval yozuvi o'tkazib yuborildi: %s", m)
             continue
         weekday_idx = PTB_WEEKDAY[m["day"]]
+        morning_time, morning_day_shift = compute_morning_time(m["time"])
+        morning_weekday_idx = (weekday_idx - morning_day_shift) % 7
         app.job_queue.run_daily(
-            send_reminder_job, time=REMINDER_TIME, days=(weekday_idx,),
+            send_reminder_job, time=morning_time, days=(morning_weekday_idx,),
             data={"meeting": m, "when": "morning"}, name=f"reminder-morning-{m['id']}",
         )
         pre_time, day_shift = compute_pre_meeting_time(m["time"])
